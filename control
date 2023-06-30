@@ -1,0 +1,9 @@
+Package: com.ryannair05.apolloapi
+Name: ApolloAPI
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Custom API for Apollo
+Maintainer: Ryan Nair
+Author: Ryan Nair
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000), firmware (>= 15.0)
