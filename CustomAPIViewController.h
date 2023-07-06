@@ -2,3 +2,5 @@
 
 @interface CustomAPIViewController : UIViewController <UITextFieldDelegate>
 @end
+
+NSString *customIdentifier;

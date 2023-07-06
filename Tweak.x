@@ -1,5 +1,4 @@
 #import "Tweak.h"
-#include <objc/runtime.h>
 
 static void (*ApolloSettingsGeneralViewController_viewDidLoad_orig)(__unsafe_unretained UIViewController* const, SEL);
 static void ApolloSettingsGeneralViewController_viewDidLoad_swizzle(__unsafe_unretained UIViewController* const self, SEL _cmd) {
@@ -7,9 +6,40 @@ static void ApolloSettingsGeneralViewController_viewDidLoad_swizzle(__unsafe_unr
 
 	self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithPrimaryAction:
 		[UIAction actionWithTitle:@"Custom API" image:nil identifier:nil handler:^(UIAction * action) {
-			CustomAPIViewController *popupVC = [[CustomAPIViewController alloc] init];
-			UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:popupVC];
-			[self presentViewController:navController animated:YES completion:nil];
+			UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:[[CustomAPIViewController alloc] init]];
+		    [self presentViewController:navController animated:YES completion:nil];
+	}]];
+}
+
+static void (*ApolloProfileViewController_viewDidLoad_orig)(__unsafe_unretained UIViewController* const, SEL);
+static void ApolloProfileViewController_viewDidLoad_swizzle(__unsafe_unretained UIViewController* const self, SEL _cmd) {
+	ApolloProfileViewController_viewDidLoad_orig(self, _cmd);
+
+	self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithPrimaryAction:
+        [UIAction actionWithTitle:@"User Agent" image:nil identifier:nil handler:^(UIAction * action) {
+
+            UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"User Agent" message:@"Enter a custom user agent" preferredStyle:UIAlertControllerStyleAlert];
+            
+            [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+                textField.text = (__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("userAgent"), CFSTR("com.ryannair05.apolloapi")) ?: @"iOS: com.christianselig.Apollo v1.15.12 (by /u/iamthatis)";
+            }];
+    
+            UIAlertAction *doneAction = [UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+                UITextField *textField = alertController.textFields.firstObject;
+                if (textField.text.length > 0) {
+                    CFPreferencesSetAppValue(CFSTR("userAgent"), (__bridge CFStringRef) textField.text, CFSTR("com.ryannair05.apolloapi"));
+                }
+                else {
+                    CFPreferencesSetAppValue(CFSTR("userAgent"), CFSTR("iOS: com.christianselig.Apollo v1.15.12 (by /u/iamthatis)"), CFSTR("com.ryannair05.apolloapi"));
+                }
+            }];
+
+            [alertController addAction:doneAction];
+        
+            UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
+            [alertController addAction:cancelAction];
+            
+            [self presentViewController:alertController animated:YES completion:nil];
 	}]];
 }
 
@@ -21,19 +51,17 @@ static void ApolloTabBarController_viewDidAppear_swizzle(__unsafe_unretained UIV
 
     [welcomeController addBulletedListItemWithTitle:@"Settings" description:@"Go to Settings -> General and click \"Custom API\" on the navigation bar" image:[UIImage systemImageNamed:@"1.circle.fill"]];
     [welcomeController addBulletedListItemWithTitle:@"Make an API" description:@"Follow the directions to make an API Key on Reddit's website and insert the key into preferences" image:[UIImage systemImageNamed:@"2.circle.fill"]];
-    [welcomeController addBulletedListItemWithTitle:@"Insert New API" description:@"Changes are applied immediately, but it may take an app restart or logging out of and in accounts to take effect" image:[UIImage systemImageNamed:@"3.circle.fill"]];
+    [welcomeController addBulletedListItemWithTitle:@"Insert New API" description:@"Changes are applied immediately, but it may take logging in and out of accounts to take effect" image:[UIImage systemImageNamed:@"3.circle.fill"]];
 
-    OBBoldTrayButton* continueButton = [objc_getClass("OBBoldTrayButton") buttonWithType:1];
-    [continueButton addTarget:self action:@selector(dismissWelcomeController) forControlEvents:UIControlEventTouchUpInside];
-    [continueButton setTitle:@"Continue" forState:UIControlStateNormal];
-    [continueButton setClipsToBounds:YES];
-    [continueButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [continueButton.layer setCornerRadius:9];
-    [continueButton setBackgroundColor:UIColor.tintColor];
+    UIButton *continueButton = [UIButton buttonWithConfiguration:[UIButtonConfiguration filledButtonConfiguration] primaryAction:
+        [UIAction actionWithTitle:@"Continue" image:nil identifier:nil handler:^(UIAction * action) {
+        [self dismissViewControllerAnimated:YES completion:nil];
+        
+        CFPreferencesSetAppValue(CFSTR("shownWelcomeController"), kCFBooleanTrue, CFSTR("com.ryannair05.apolloapi"));
+        method_setImplementation(class_getInstanceMethod([self class], @selector(viewDidAppear:)), (IMP)ApolloTabBarController_viewDidAppear_orig);
+    }]];
+
     [welcomeController.buttonTray addButton:continueButton];
-    welcomeController._shouldInlineButtontray = YES;
-    
-    welcomeController.buttonTray.effectView.effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemChromeMaterial];
      
     UIVisualEffectView *effectWelcomeView = [[UIVisualEffectView alloc] initWithFrame:welcomeController.viewIfLoaded.bounds];
      
@@ -47,20 +75,41 @@ static void ApolloTabBarController_viewDidAppear_swizzle(__unsafe_unretained UIV
 
     welcomeController.modalPresentationStyle = UIModalPresentationPageSheet;
     welcomeController.modalInPresentation = YES;
-    welcomeController.view.tintColor = [UIColor systemBlueColor];
 	[self presentViewController:welcomeController animated:YES completion:nil];
-}
-
-static void ApolloTabBarController_dismissWelcomeController(__unsafe_unretained UIViewController* const self, SEL _cmd) {
-    [self dismissViewControllerAnimated:true completion:nil];
-	CFPreferencesSetAppValue(CFSTR("shownWelcomeController"), kCFBooleanTrue, CFSTR("com.ryannair05.apolloapi"));
 }
 
 %hook RDKOAuthCredential
 - (NSString *)clientIdentifier {
-	NSString *customIdentifier = (__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("customAPIKey"), CFSTR("com.ryannair05.apolloapi"));
-
 	return customIdentifier ?: %orig;
+}
+%end
+
+%hook RDKClient
+- (NSString *)userAgent {
+    NSString *customUserAgent = (__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("userAgent"), CFSTR("com.ryannair05.apolloapi"));
+    return customUserAgent ?: %orig;
+}
+%end
+
+%hook NSURLSession
+- (NSURLSessionUploadTask*)uploadTaskWithRequest:(NSURLRequest*)request fromData:(NSData*)bodyData completionHandler:(void (^)(NSData*, NSURLResponse*, NSError*))completionHandler {
+    if ([[[request URL] lastPathComponent] isEqualToString:@"image"]) {
+        NSMutableURLRequest *modifiedRequest = [request mutableCopy];
+        [modifiedRequest setURL:[NSURL URLWithString:[@"https://api.imgur.com/3/image?client_id=" stringByAppendingString:(__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("imgurAPIKey"), CFSTR("com.ryannair05.apolloapi"))]]];
+        return %orig([modifiedRequest copy], bodyData, completionHandler);
+    }
+    return %orig;
+}
+
+- (NSURLSessionDataTask*)dataTaskWithRequest:(NSURLRequest*)request completionHandler:(void (^)(NSData*, NSURLResponse*, NSError*))completionHandler {
+    NSURL *urlRequest = [request URL];
+
+    if ([[urlRequest absoluteString] compare:@"imgur-apiv3.p" options:NSLiteralSearch | NSAnchoredSearch range:NSMakeRange(8, 13)] == 0) {
+        NSMutableURLRequest *modifiedRequest = [request mutableCopy];
+        [modifiedRequest setURL:[NSURL URLWithString:[@"https://api.imgur.com/3/image" stringByAppendingPathComponent:[urlRequest lastPathComponent]]]];
+        return %orig([modifiedRequest copy], completionHandler);
+    }
+    return %orig;
 }
 %end
 
@@ -68,11 +117,10 @@ static void ApolloTabBarController_dismissWelcomeController(__unsafe_unretained 
 	%init;
 
 	MSHookMessageEx(objc_getClass("Apollo.SettingsGeneralViewController"), @selector(viewDidLoad), (IMP)&ApolloSettingsGeneralViewController_viewDidLoad_swizzle, (IMP*)&ApolloSettingsGeneralViewController_viewDidLoad_orig);
-
-	Class navigationClass = objc_getClass("Apollo.ApolloTabBarController");
+    MSHookMessageEx(objc_getClass("Apollo.ProfileViewController"), @selector(viewDidLoad), (IMP)&ApolloProfileViewController_viewDidLoad_swizzle, (IMP*)&ApolloProfileViewController_viewDidLoad_orig);
+    customIdentifier = (__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("customAPIKey"), CFSTR("com.ryannair05.apolloapi"));
 
 	if (!CFPreferencesGetAppBooleanValue(CFSTR("shownWelcomeController"), CFSTR("com.ryannair05.apolloapi"), NULL) && objc_getClass("OBWelcomeController")) {
-		MSHookMessageEx(navigationClass, @selector(viewDidAppear:), (IMP)&ApolloTabBarController_viewDidAppear_swizzle, (IMP*)&ApolloTabBarController_viewDidAppear_orig);
-		class_addMethod(navigationClass, @selector(dismissWelcomeController), (IMP)&ApolloTabBarController_dismissWelcomeController, "v@:");
+        ApolloTabBarController_viewDidAppear_orig = (void (*)(UIViewController* const, SEL, BOOL)) method_setImplementation(class_getInstanceMethod(objc_getClass("Apollo.ApolloTabBarController"), @selector(viewDidAppear:)), (IMP)ApolloTabBarController_viewDidAppear_swizzle);
 	}
 }
