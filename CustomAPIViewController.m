@@ -46,7 +46,7 @@
 	UITextField *imgurTextField = [[UITextField alloc] init];
     imgurTextField.placeholder = @"Imgur API Key";
 	imgurTextField.tag = 1;
-	imgurTextField.text = (__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("imgurAPIKey"), CFSTR("com.ryannair05.apolloapi"));
+	imgurTextField.text = imgurAPIKey;
     imgurTextField.delegate = self;
 	imgurTextField.clearButtonMode = UITextFieldViewModeWhileEditing;
     [stackView addArrangedSubview:imgurTextField];
@@ -91,11 +91,11 @@
 		NSData *githubImageData = [NSData dataWithContentsOfURL:githubImageURL];
 		UIImage *githubImage = [UIImage imageWithData:githubImageData];
 		const CGFloat imageSize = 40;
-		UIGraphicsBeginImageContextWithOptions(CGSizeMake(imageSize, imageSize), NO, 0.0);
-		[[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, imageSize, imageSize) cornerRadius:5.0] addClip];
-		[githubImage drawInRect:CGRectMake(0, 0, imageSize, imageSize)];
-		UIImage *smallGithubImage = UIGraphicsGetImageFromCurrentImageContext();
-		UIGraphicsEndImageContext();
+		UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(imageSize, imageSize)];
+		UIImage *smallGithubImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull context) {
+			[[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, imageSize, imageSize) cornerRadius:5.0] addClip];
+			[githubImage drawInRect:CGRectMake(0, 0, imageSize, imageSize)];
+		}];
 			
 		dispatch_async(dispatch_get_main_queue(), ^{
 			UIButtonConfiguration *buttonConfiguration = [UIButtonConfiguration grayButtonConfiguration];
@@ -122,11 +122,11 @@
 		NSData *twitterImageData = [NSData dataWithContentsOfURL:twitterImageURL];
 		UIImage *twitterImage = [UIImage imageWithData:twitterImageData];
 		const CGFloat imageSize = 40;
-		UIGraphicsBeginImageContextWithOptions(CGSizeMake(imageSize, imageSize), NO, 0.0);
-		[[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, imageSize, imageSize) cornerRadius:5.0] addClip];
-		[twitterImage drawInRect:CGRectMake(0, 0, imageSize, imageSize)];
-		UIImage *smallTwitterImage = UIGraphicsGetImageFromCurrentImageContext();
-		UIGraphicsEndImageContext();
+		UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(imageSize, imageSize)];
+		UIImage *smallTwitterImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull context) {
+			[[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, imageSize, imageSize) cornerRadius:5.0] addClip];
+			[twitterImage drawInRect:CGRectMake(0, 0, imageSize, imageSize)];
+		}];
 
 		dispatch_async(dispatch_get_main_queue(), ^{
 			UIButtonConfiguration *buttonConfiguration = [UIButtonConfiguration grayButtonConfiguration];
@@ -150,7 +150,8 @@
 		CFPreferencesSetAppValue(CFSTR("customAPIKey"), (__bridge CFStringRef) customIdentifier, CFSTR("com.ryannair05.apolloapi"));
 	}
 	else {
-		CFPreferencesSetAppValue(CFSTR("imgurAPIKey"), (__bridge CFStringRef) textField.text, CFSTR("com.ryannair05.apolloapi"));
+		imgurAPIKey = textField.text;
+		CFPreferencesSetAppValue(CFSTR("imgurAPIKey"), (__bridge CFStringRef) imgurAPIKey, CFSTR("com.ryannair05.apolloapi"));
 	}
 }
 

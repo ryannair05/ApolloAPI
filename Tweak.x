@@ -35,12 +35,48 @@ static void ApolloProfileViewController_viewDidLoad_swizzle(__unsafe_unretained 
             }];
 
             [alertController addAction:doneAction];
-        
             UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
             [alertController addAction:cancelAction];
             
             [self presentViewController:alertController animated:YES completion:nil];
 	}]];
+}
+
+static void (*ApolloWallpaperAlertViewController_viewDidAppear_orig)(__unsafe_unretained UIViewController* const, SEL, BOOL animated);
+static void ApolloWallpaperAlertViewController_viewDidAppear_swizzle(__unsafe_unretained UIViewController* const self, SEL _cmd, BOOL animated) {
+	ApolloWallpaperAlertViewController_viewDidAppear_orig(self, _cmd, animated);
+
+    UITabBarController *tabBarController = (UITabBarController *) [self presentingViewController];
+
+    if ([tabBarController selectedIndex] == 0) {
+        [tabBarController dismissViewControllerAnimated:NO completion:nil];
+    }
+    else {
+        UIButton *wallpaperButton = self.view.subviews[3];
+        UIButtonConfiguration *buttonConfig = [UIButtonConfiguration filledButtonConfiguration];
+        buttonConfig.cornerStyle = UIButtonConfigurationCornerStyleLarge;
+        buttonConfig.attributedTitle = [[NSAttributedString alloc] initWithString:@"Dismiss" attributes: @{NSFontAttributeName : [UIFont boldSystemFontOfSize:20.0]}];
+
+        UIButton *dismissButton = [UIButton buttonWithConfiguration:buttonConfig primaryAction:
+        [UIAction actionWithHandler:^(UIAction * action) {
+            [tabBarController dismissViewControllerAnimated:YES completion:nil];
+        }]];
+
+        dismissButton.alpha = 0.0;
+        [UIView animateWithDuration:0.3 delay:0.0 options:UIViewAnimationOptionTransitionNone animations:^{
+            dismissButton.alpha = 1.0;
+        } completion:nil];
+
+        [self.view addSubview:dismissButton];
+        dismissButton.translatesAutoresizingMaskIntoConstraints = NO;
+
+        [self.view addConstraints:@[  
+            [NSLayoutConstraint constraintWithItem:dismissButton attribute:NSLayoutAttributeCenterX relatedBy:NSLayoutRelationEqual toItem:wallpaperButton attribute:NSLayoutAttributeCenterX multiplier:1.0 constant:0],
+            [NSLayoutConstraint constraintWithItem:dismissButton attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:wallpaperButton attribute:NSLayoutAttributeWidth multiplier:1.0 constant:0],
+            [NSLayoutConstraint constraintWithItem:dismissButton attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:wallpaperButton attribute:NSLayoutAttributeHeight multiplier:1.0 constant:0],
+            [NSLayoutConstraint constraintWithItem:dismissButton attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:wallpaperButton attribute:NSLayoutAttributeBottom multiplier:1.0 constant:20]
+        ]];
+    }
 }
 
 static void (*ApolloTabBarController_viewDidAppear_orig)(__unsafe_unretained UIViewController* const, SEL, BOOL animated);
@@ -95,7 +131,7 @@ static void ApolloTabBarController_viewDidAppear_swizzle(__unsafe_unretained UIV
 - (NSURLSessionUploadTask*)uploadTaskWithRequest:(NSURLRequest*)request fromData:(NSData*)bodyData completionHandler:(void (^)(NSData*, NSURLResponse*, NSError*))completionHandler {
     if ([[[request URL] lastPathComponent] isEqualToString:@"image"]) {
         NSMutableURLRequest *modifiedRequest = [request mutableCopy];
-        [modifiedRequest setURL:[NSURL URLWithString:[@"https://api.imgur.com/3/image?client_id=" stringByAppendingString:(__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("imgurAPIKey"), CFSTR("com.ryannair05.apolloapi"))]]];
+        [modifiedRequest setURL:[NSURL URLWithString:[@"https://api.imgur.com/3/image?client_id=" stringByAppendingString:imgurAPIKey]]];
         return %orig([modifiedRequest copy], bodyData, completionHandler);
     }
     return %orig;
@@ -104,11 +140,25 @@ static void ApolloTabBarController_viewDidAppear_swizzle(__unsafe_unretained UIV
 - (NSURLSessionDataTask*)dataTaskWithRequest:(NSURLRequest*)request completionHandler:(void (^)(NSData*, NSURLResponse*, NSError*))completionHandler {
     NSURL *urlRequest = [request URL];
 
-    if ([[urlRequest absoluteString] compare:@"imgur-apiv3.p" options:NSLiteralSearch | NSAnchoredSearch range:NSMakeRange(8, 13)] == 0) {
+    if ([[urlRequest host] compare:@"imgur-apiv3.p" options:NSLiteralSearch | NSAnchoredSearch range:NSMakeRange(0, 13)] == NSOrderedSame) {
         NSMutableURLRequest *modifiedRequest = [request mutableCopy];
         [modifiedRequest setURL:[NSURL URLWithString:[@"https://api.imgur.com/3/image" stringByAppendingPathComponent:[urlRequest lastPathComponent]]]];
         return %orig([modifiedRequest copy], completionHandler);
     }
+    return %orig;
+}
+
+- (NSURLSessionDataTask *)dataTaskWithURL:(NSURL *)url completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
+    if ([[url host] containsString:@"apollogur"]) {
+        NSArray<NSString *> *apollogurComponents = url.pathComponents;
+        NSString *endpointType = apollogurComponents[2];
+
+        if ([endpointType isEqualToString:@"image"] || [endpointType isEqualToString:@"album"]) {
+            NSURL *modifiedURL = [NSURL URLWithString:[NSString stringWithFormat:@"https://api.imgur.com/3/%@/%@.json?client_id=%@", endpointType, apollogurComponents[3], imgurAPIKey]];
+            return %orig(modifiedURL, completionHandler);
+        }
+    }
+
     return %orig;
 }
 %end
@@ -118,7 +168,9 @@ static void ApolloTabBarController_viewDidAppear_swizzle(__unsafe_unretained UIV
 
 	MSHookMessageEx(objc_getClass("Apollo.SettingsGeneralViewController"), @selector(viewDidLoad), (IMP)&ApolloSettingsGeneralViewController_viewDidLoad_swizzle, (IMP*)&ApolloSettingsGeneralViewController_viewDidLoad_orig);
     MSHookMessageEx(objc_getClass("Apollo.ProfileViewController"), @selector(viewDidLoad), (IMP)&ApolloProfileViewController_viewDidLoad_swizzle, (IMP*)&ApolloProfileViewController_viewDidLoad_orig);
+    MSHookMessageEx(objc_getClass("_TtGC7SwiftUI19UIHostingControllerV6Apollo18WallpaperAlertView_"), @selector(viewDidAppear:), (IMP)&ApolloWallpaperAlertViewController_viewDidAppear_swizzle, (IMP*)&ApolloWallpaperAlertViewController_viewDidAppear_orig);
     customIdentifier = (__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("customAPIKey"), CFSTR("com.ryannair05.apolloapi"));
+    imgurAPIKey = (__bridge_transfer NSString *) CFPreferencesCopyAppValue(CFSTR("imgurAPIKey"), CFSTR("com.ryannair05.apolloapi"));
 
 	if (!CFPreferencesGetAppBooleanValue(CFSTR("shownWelcomeController"), CFSTR("com.ryannair05.apolloapi"), NULL) && objc_getClass("OBWelcomeController")) {
         ApolloTabBarController_viewDidAppear_orig = (void (*)(UIViewController* const, SEL, BOOL)) method_setImplementation(class_getInstanceMethod(objc_getClass("Apollo.ApolloTabBarController"), @selector(viewDidAppear:)), (IMP)ApolloTabBarController_viewDidAppear_swizzle);

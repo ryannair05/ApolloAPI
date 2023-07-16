@@ -4,3 +4,4 @@
 @end
 
 NSString *customIdentifier;
+NSString *imgurAPIKey;

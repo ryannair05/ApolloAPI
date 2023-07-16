@@ -1,6 +1,6 @@
 Package: com.ryannair05.apolloapi
 Name: ApolloAPI
-Version: 1.0.1
+Version: 1.0.2
 Architecture: iphoneos-arm
 Description: Custom API for Apollo
 Maintainer: Ryan Nair
