@@ -173,6 +173,6 @@ static void ApolloTabBarController_viewDidAppear_swizzle(__unsafe_unretained UIV
         ApolloTabBarController_viewDidAppear_orig = (void (*)(UIViewController* const, SEL, BOOL)) method_setImplementation(class_getInstanceMethod(objc_getClass("Apollo.ApolloTabBarController"), @selector(viewDidAppear:)), (IMP)ApolloTabBarController_viewDidAppear_swizzle);
 	}
 
-        // Suppress wallpaper popup
-        [[NSUserDefaults standardUserDefaults] setObject:[NSDate dateWithTimeIntervalSinceNow:60*60*24*90] forKey:@"WallpaperPromptMostRecent2"];
+	// Suppress wallpaper popup
+	[[NSUserDefaults standardUserDefaults] setObject:[NSDate dateWithTimeIntervalSinceNow:60*60*24*90] forKey:@"WallpaperPromptMostRecent2"];
 }
