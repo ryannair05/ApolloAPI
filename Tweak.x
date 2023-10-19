@@ -48,10 +48,7 @@ static void ApolloWallpaperAlertViewController_viewDidAppear_swizzle(__unsafe_un
 
     UITabBarController *tabBarController = (UITabBarController *) [self presentingViewController];
 
-    if ([tabBarController selectedIndex] == 0) {
-        [tabBarController dismissViewControllerAnimated:NO completion:nil];
-    }
-    else {
+    if ([tabBarController selectedIndex] != 0) {
         UIButton *wallpaperButton = self.view.subviews[3];
         UIButtonConfiguration *buttonConfig = [UIButtonConfiguration filledButtonConfiguration];
         buttonConfig.cornerStyle = UIButtonConfigurationCornerStyleLarge;
@@ -175,4 +172,7 @@ static void ApolloTabBarController_viewDidAppear_swizzle(__unsafe_unretained UIV
 	if (!CFPreferencesGetAppBooleanValue(CFSTR("shownWelcomeController"), CFSTR("com.ryannair05.apolloapi"), NULL) && objc_getClass("OBWelcomeController")) {
         ApolloTabBarController_viewDidAppear_orig = (void (*)(UIViewController* const, SEL, BOOL)) method_setImplementation(class_getInstanceMethod(objc_getClass("Apollo.ApolloTabBarController"), @selector(viewDidAppear:)), (IMP)ApolloTabBarController_viewDidAppear_swizzle);
 	}
+
+	// Suppress wallpaper popup
+	[[NSUserDefaults standardUserDefaults] setObject:[NSDate dateWithTimeIntervalSinceNow:60*60*24*90] forKey:@"WallpaperPromptMostRecent2"];
 }
